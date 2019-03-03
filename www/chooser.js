@@ -1,5 +1,4 @@
 cordova.define("cordova-plugin-chooser.Chooser", function (require, exports, module) {
-
     module.exports = {
         getFile: function (accept, cb) {
             return new Promise(function (resolve, reject) {
@@ -23,18 +22,6 @@ cordova.define("cordova-plugin-chooser.Chooser", function (require, exports, mod
                     [(typeof accept === 'string' ? accept.replace(/\s/g, '') : undefined) || '*/*']
                 );
             });
-        },
-        dismiss: function (cb) {
-            cordova.exec(
-                function () {
-                    cb()
-                },
-                null,
-                'Chooser',
-                'dismiss',
-                []
-            );
         }
     };
-
 });
