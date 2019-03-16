@@ -1,0 +1,230 @@
+import UIKit
+import MobileCoreServices
+import AVFoundation
+import Foundation
+
+
+@objc(Chooser)
+class Chooser : CDVPlugin {
+	var commandCallback: String?
+
+	func callPicker (utis: [String]) {
+		let picker = UIDocumentPickerViewController(documentTypes: utis, in: .import)
+		picker.delegate = self
+		self.viewController.present(picker, animated: true, completion: nil)
+	}
+
+	func detectMimeType (_ url: URL) -> String {
+		if let uti = UTTypeCreatePreferredIdentifierForTag(
+			kUTTagClassFilenameExtension,
+			url.pathExtension as CFString,
+			nil
+		)?.takeRetainedValue() {
+			if let mimetype = UTTypeCopyPreferredTagWithClass(
+				uti,
+				kUTTagClassMIMEType
+			)?.takeRetainedValue() as? String {
+				return mimetype
+			}
+		}
+
+		return "application/octet-stream"
+	}
+
+	func documentWasSelected (url: URL) {
+		var error: NSError?
+
+		NSFileCoordinator().coordinate(
+			readingItemAt: url,
+			options: [],
+			error: &error
+		) { newURL in
+			let maybeData = try? Data(contentsOf: newURL, options: [])
+
+			guard let data = maybeData else {
+				self.sendError("Failed to fetch data.")
+				return
+			}
+			do {
+                self.send("start")
+                let mediaType = self.detectMimeType(newURL)
+                var config = ["mediaType": mediaType];
+                if(mediaType == ".mp4") {
+                     let avAsset = AVAsset(url: newURL)
+                    //生成视频截图
+                    let generator = AVAssetImageGenerator(asset: avAsset)
+                    generator.appliesPreferredTrackTransform = true
+                    let time = CMTimeMakeWithSeconds(0.0,preferredTimescale: 600)
+                    var actualTime: CMTime = CMTimeMake(value: 0,timescale: 0)
+                    let image: CGImage = try! generator.copyCGImage(at: time, actualTime: &actualTime)
+                    config["w"] = String(image.width)
+                    config["h"] = String(image.height)
+                    config["thumbnail"] = self.getThumbnail(UIImage(cgImage: image))
+                    config["duration"] = String(CMTimeGetSeconds(avAsset.duration))
+                } else if let image = UIImage(data: data) {
+                    config["w"] = String(Int(image.size.width))
+                    config["h"] = String(Int(image.size.height))
+                    config["thumbnail"] = self.getThumbnail(image)
+                } else {
+                    self.sendError("no result")
+                }
+                if let message = try String(
+                    data: JSONSerialization.data(
+                        withJSONObject: config,
+                        options: []
+                    ),
+                    encoding: String.Encoding.utf8
+                    ) {
+                    self.send(message)
+                }
+                else {
+                    self.sendError("Serializing result failed.")
+                }
+                
+                let bytes = [UInt8](data)
+                var len = bytes.count
+                repeat {
+                    var count = 1024 * 512
+                    if len < count {
+                        count = len
+                    }
+                    let start = bytes.count - len
+                    self.send(bytes[start...start + count])
+                    len = len - count
+                } while(len > 0)
+
+				newURL.stopAccessingSecurityScopedResource()
+                self.send("end")
+			}
+			catch let error {
+				self.sendError(error.localizedDescription)
+			}
+		}
+
+		if let error = error {
+			self.sendError(error.localizedDescription)
+		}
+
+		url.stopAccessingSecurityScopedResource()
+	}
+
+	@objc(getFile:)
+	func getFile (command: CDVInvokedUrlCommand) {
+		self.commandCallback = command.callbackId
+
+		let accept = command.arguments.first as! String
+		let mimeTypes = accept.components(separatedBy: ",")
+
+		let utis = mimeTypes.map { (mimeType: String) -> String in
+			switch mimeType {
+				case "audio/*":
+					return kUTTypeAudio as String
+				case "font/*":
+					return "public.font"
+				case "image/*":
+					return kUTTypeImage as String
+				case "text/*":
+					return kUTTypeText as String
+				case "video/*":
+					return kUTTypeVideo as String
+				default:
+					break
+			}
+
+			if mimeType.range(of: "*") == nil {
+				let utiUnmanaged = UTTypeCreatePreferredIdentifierForTag(
+					kUTTagClassMIMEType,
+					mimeType as CFString,
+					nil
+				)
+
+				if let uti = (utiUnmanaged?.takeRetainedValue() as? String) {
+					if !uti.hasPrefix("dyn.") {
+						return uti
+					}
+				}
+			}
+
+			return kUTTypeData as String
+		}
+
+		self.callPicker(utis: utis)
+	}
+
+	func send (_ message: String, _ status: CDVCommandStatus = CDVCommandStatus_OK, _ final: Bool = false) {
+		if let callbackId = self.commandCallback {
+			if(final) {
+				self.commandCallback = nil
+			}
+
+			let pluginResult = CDVPluginResult(
+				status: status,
+				messageAs: message
+			)
+			pluginResult.setKeepCallbackAsBool(true)
+
+			self.commandDelegate!.send(
+				pluginResult,
+				callbackId: callbackId
+			)
+		}
+	}
+    
+    func send (_ message: [UInt8], _ status: CDVCommandStatus = CDVCommandStatus_OK, _ final: Bool = false) {
+        if let callbackId = self.commandCallback {
+            if(final) {
+                self.commandCallback = nil
+            }
+            
+            let pluginResult = CDVPluginResult(
+                status: status,
+                messageAs: message
+            )
+            pluginResult.setKeepCallbackAsBool(true)
+            
+            self.commandDelegate!.send(
+                pluginResult,
+                callbackId: callbackId
+            )
+        }
+    }
+
+	func sendError (_ message: String) {
+		self.send(message, CDVCommandStatus_ERROR, true)
+	}
+    
+    func getThumbnail(_ image: UIImage) -> String {
+        var res: String?;
+        UIGraphicsBeginImageContext(CGSize(width: 128, height: 128))
+        image.draw(in: CGRect(x: 0, y: 0, width: 128, height: 128))
+        if let image_ = UIGraphicsGetImageFromCurrentImageContext() {
+            let data = image_.jpegData(compressionQuality: 0.9)
+            res = data?.base64EncodedString(options: .lineLength64Characters)
+        }
+        UIGraphicsEndImageContext()
+        return res ?? "";
+    }
+}
+
+extension Chooser : UIDocumentPickerDelegate {
+	@available(iOS 11.0, *)
+	func documentPicker (
+		_ controller: UIDocumentPickerViewController,
+		didPickDocumentsAt urls: [URL]
+	) {
+		if let url = urls.first {
+			self.documentWasSelected(url: url)
+		}
+	}
+
+	func documentPicker (
+		_ controller: UIDocumentPickerViewController,
+		didPickDocumentAt url: URL
+	) {
+		self.documentWasSelected(url: url)
+	}
+
+	func documentPickerWasCancelled (_ controller: UIDocumentPickerViewController) {
+		self.send("RESULT_CANCELED")
+	}
+}
