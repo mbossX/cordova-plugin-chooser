@@ -49,13 +49,13 @@ class Chooser : CDVPlugin {
                 self.send("start")
                 let mediaType = self.detectMimeType(newURL)
                 var config = ["mediaType": mediaType];
-                if(mediaType == ".mp4") {
+                if mediaType.contains("video") {
                      let avAsset = AVAsset(url: newURL)
                     //生成视频截图
                     let generator = AVAssetImageGenerator(asset: avAsset)
                     generator.appliesPreferredTrackTransform = true
-                    let time = CMTimeMakeWithSeconds(0.0,preferredTimescale: 600)
-                    var actualTime: CMTime = CMTimeMake(value: 0,timescale: 0)
+                    let time = CMTimeMakeWithSeconds(0.0,600)
+                    var actualTime: CMTime = CMTimeMake(0,0)
                     let image: CGImage = try! generator.copyCGImage(at: time, actualTime: &actualTime)
                     config["w"] = String(image.width)
                     config["h"] = String(image.height)
@@ -89,7 +89,7 @@ class Chooser : CDVPlugin {
                         count = len
                     }
                     let start = bytes.count - len
-                    self.send(bytes[start...start + count])
+                    self.send(Data(bytes: bytes[start...start + count - 1]))
                     len = len - count
                 } while(len > 0)
 
@@ -138,7 +138,7 @@ class Chooser : CDVPlugin {
 					nil
 				)
 
-				if let uti = (utiUnmanaged?.takeRetainedValue() as? String) {
+                if let uti = (utiUnmanaged?.takeRetainedValue() as String?) {
 					if !uti.hasPrefix("dyn.") {
 						return uti
 					}
@@ -161,7 +161,7 @@ class Chooser : CDVPlugin {
 				status: status,
 				messageAs: message
 			)
-			pluginResult.setKeepCallbackAsBool(true)
+            pluginResult?.setKeepCallbackAs(true)
 
 			self.commandDelegate!.send(
 				pluginResult,
@@ -170,17 +170,13 @@ class Chooser : CDVPlugin {
 		}
 	}
     
-    func send (_ message: [UInt8], _ status: CDVCommandStatus = CDVCommandStatus_OK, _ final: Bool = false) {
+    func send (_ buffer: Data!) {
         if let callbackId = self.commandCallback {
-            if(final) {
-                self.commandCallback = nil
-            }
-            
             let pluginResult = CDVPluginResult(
-                status: status,
-                messageAs: message
+                status: CDVCommandStatus_OK,
+                messageAsArrayBuffer: buffer
             )
-            pluginResult.setKeepCallbackAsBool(true)
+            pluginResult?.setKeepCallbackAs(true)
             
             self.commandDelegate!.send(
                 pluginResult,
@@ -198,7 +194,7 @@ class Chooser : CDVPlugin {
         UIGraphicsBeginImageContext(CGSize(width: 128, height: 128))
         image.draw(in: CGRect(x: 0, y: 0, width: 128, height: 128))
         if let image_ = UIGraphicsGetImageFromCurrentImageContext() {
-            let data = image_.jpegData(compressionQuality: 0.9)
+            let data = UIImageJPEGRepresentation(image_, 0.9)
             res = data?.base64EncodedString(options: .lineLength64Characters)
         }
         UIGraphicsEndImageContext()
