@@ -8,8 +8,8 @@ import Foundation
 class Chooser : CDVPlugin {
     var commandCallback: String?
     
-    func callPicker (utis: [String]) {
-       if !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+    func callPicker ( utis: [String]) {
+        if !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
             self.send("RESULT_CANCELED");
             return;
         }
@@ -19,7 +19,10 @@ class Chooser : CDVPlugin {
         //指定图片控制器类型
         imagePicker.sourceType = .photoLibrary
         //只显示视频类型的文件
-        imagePicker.mediaTypes = utis
+        var uts = utis
+        uts.append(kUTTypeMovie as String)
+//        imagePicker.mediaTypes = utis
+        imagePicker.mediaTypes = ["public.image"] // ["public.image", "public.movie"] // ["public.movie"] mpeg-4
         //不需要编辑
         imagePicker.allowsEditing = false
         //弹出控制器，显示界面
@@ -52,7 +55,6 @@ class Chooser : CDVPlugin {
             error: &error
         ) { newURL in
             let maybeData = try? Data(contentsOf: newURL, options: [])
-            
             guard let data = maybeData else {
                 self.sendError("Failed to fetch data.")
                 return
@@ -72,7 +74,7 @@ class Chooser : CDVPlugin {
                     config["w"] = String(image.width)
                     config["h"] = String(image.height)
                     config["thumbnail"] = self.getThumbnail(UIImage(cgImage: image))
-                    config["duration"] = String(CMTimeGetSeconds(avAsset.duration))
+                    config["duration"] = String(Int(CMTimeGetSeconds(avAsset.duration)))
                 } else if let image = UIImage(data: data) {
                     config["w"] = String(Int(image.size.width))
                     config["h"] = String(Int(image.size.height))
@@ -214,9 +216,33 @@ class Chooser : CDVPlugin {
     }
 }
 
+extension Chooser : UIDocumentPickerDelegate {
+//    @available(iOS 11.0, *)
+//    func documentPicker (
+//        _ controller: UIDocumentPickerViewController,
+//        didPickDocumentsAt urls: [URL]
+//        ) {
+//        if let url = urls.first {
+//            self.documentWasSelected(url: url)
+//        }
+//    }
+//
+//    func documentPicker (
+//        _ controller: UIDocumentPickerViewController,
+//        didPickDocumentAt url: URL
+//        ) {
+//        self.documentWasSelected(url: url)
+//    }
+//
+//    func documentPickerWasCancelled (_ controller: UIDocumentPickerViewController) {
+//        self.send("RESULT_CANCELED")
+//    }
+}
+
 extension Chooser : UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         self.send("RESULT_CANCELED")
+        self.viewController.dismiss(animated: true, completion: {})
     }
     func imagePickerController(_ picker: UIImagePickerController,
                                didFinishPickingMediaWithInfo info: [String : Any]) {
@@ -229,11 +255,13 @@ extension Chooser : UIImagePickerControllerDelegate, UINavigationControllerDeleg
                     url = info[UIImagePickerControllerReferenceURL] as? URL
                 }
             } else {
-                url = info[UIImagePickerControllerMediaType] as? URL
+                url = info[UIImagePickerControllerMediaURL] as? URL
             }
         }
         if let url_ = url {
             self.documentWasSelected(url: url_)
+            self.viewController.dismiss(animated: true, completion: {})
+        } else {
             self.viewController.dismiss(animated: true, completion: {})
         }
     }
