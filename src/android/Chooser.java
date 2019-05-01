@@ -24,6 +24,7 @@ import android.media.MediaMetadataRetriever;
 import android.text.TextUtils;
 import android.widget.RelativeLayout;
 import android.os.Bundle;
+import android.os.Build;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -77,14 +78,26 @@ public class Chooser extends CordovaPlugin {
 	private CallbackContext callback;
 
 	public void chooseFile(CallbackContext callbackContext, String accept) {
-		Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-		intent.setType(accept);
-		intent.putExtra(Intent.EXTRA_MIME_TYPES, accept);
-		intent.addCategory(Intent.CATEGORY_OPENABLE);
-		intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-
-		Intent chooser = Intent.createChooser(intent, "Select File");
-		cordova.startActivityForResult(this, chooser, Chooser.PICK_FILE_REQUEST);
+		// Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+		Intent intent = new Intent();
+		if (Build.VERSION.SDK_INT < 19) {
+			intent.setAction(Intent.ACTION_GET_CONTENT);
+			intent.setType(accept);
+		} else {
+			if (accept == "video/mp4") {
+				intent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+			} else {
+				intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+			}
+			intent.setDataAndType(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, accept);
+		}
+		// intent.setType(accept);
+		// intent.putExtra(Intent.EXTRA_MIME_TYPES, accept);
+		// intent.addCategory(Intent.CATEGORY_OPENABLE);
+		// intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+		cordova.startActivityForResult(this, intent, Chooser.PICK_FILE_REQUEST);
+		// Intent chooser = Intent.createChooser(intent, "Select File");
+		// cordova.startActivityForResult(this, chooser, Chooser.PICK_FILE_REQUEST);
 
 		PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
 		pluginResult.setKeepCallback(true);
