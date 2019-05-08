@@ -27,17 +27,19 @@ class Chooser : CDVPlugin {
             //只显示视频类型的文件
             var uts = utis
             uts.append(kUTTypeMovie as String)
-            imagePicker.mediaTypes = ["public.image", "public.movie"] // ["public.movie"] mpeg-4
+            imagePicker.mediaTypes = utis
+            // imagePicker.mediaTypes = ["public.image", "public.movie"] // ["public.movie"] mpeg-4
             //不需要编辑
             imagePicker.allowsEditing = false
             if #available(iOS 11.0, *) {
                 imagePicker.videoExportPreset = AVAssetExportPreset1920x1080
             } else {
+                // Fallback on earlier versions
                 imagePicker.videoQuality = .typeHigh
             }
             //弹出控制器，显示界面
             self.viewController.present(imagePicker, animated: true, completion: nil)
-        }
+            }
     }
     
     func detectMimeType (_ url: URL) -> String {
@@ -157,7 +159,9 @@ class Chooser : CDVPlugin {
             case "text/*":
                 return kUTTypeText as String
             case "video/*":
-                return kUTTypeVideo as String
+                return kUTTypeMovie as String
+            case "video/mp4":
+                return kUTTypeMovie as String
             default:
                 break
             }
