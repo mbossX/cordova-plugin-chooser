@@ -253,6 +253,9 @@ public class Chooser extends CordovaPlugin {
 	 */
 	private int readPictureDegree(InputStream inputStream) {
 		int degree = 0;
+		if (Build.VERSION.SDK_INT < 24) {
+			return degree;
+		}
 		try {
 			ExifInterface exifInterface = new ExifInterface(inputStream);
 			int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,

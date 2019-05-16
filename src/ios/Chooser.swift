@@ -25,10 +25,10 @@ class Chooser : CDVPlugin {
             //指定图片控制器类型
             imagePicker.sourceType = .photoLibrary
             //只显示视频类型的文件
-            var uts = utis
-            uts.append(kUTTypeMovie as String)
+//            var uts = utis
+//            uts.append(kUTTypeMovie as String)
             imagePicker.mediaTypes = utis
-            // imagePicker.mediaTypes = ["public.image", "public.movie"] // ["public.movie"] mpeg-4
+//             imagePicker.mediaTypes = ["public.image", "public.movie"] // ["public.movie"] mpeg-4
             //不需要编辑
             imagePicker.allowsEditing = false
             if #available(iOS 11.0, *) {
