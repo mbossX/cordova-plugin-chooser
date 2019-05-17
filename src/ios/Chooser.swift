@@ -24,17 +24,12 @@ class Chooser : CDVPlugin {
             imagePicker.delegate = self
             //指定图片控制器类型
             imagePicker.sourceType = .photoLibrary
-            //只显示视频类型的文件
-//            var uts = utis
-//            uts.append(kUTTypeMovie as String)
             imagePicker.mediaTypes = utis
-//             imagePicker.mediaTypes = ["public.image", "public.movie"] // ["public.movie"] mpeg-4
             //不需要编辑
             imagePicker.allowsEditing = false
             if #available(iOS 11.0, *) {
                 imagePicker.videoExportPreset = AVAssetExportPreset1920x1080
             } else {
-                // Fallback on earlier versions
                 imagePicker.videoQuality = .typeHigh
             }
             //弹出控制器，显示界面

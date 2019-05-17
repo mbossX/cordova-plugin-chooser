@@ -38,6 +38,12 @@
 					android:resource="@xml/filepath" />
 			</provider>
         </config-file>
+        <config-file target="res/values/strings.xml" parent="/*">
+			<plurals name="error_over_count">
+				<item quantity="one">最多选择一个文件</item>
+				<item quantity="many">最多选择 %1$d 个文件</item>
+			</plurals>
+        </config-file>
 		<framework src="chooser.gradle" custom="true" type="gradleReference" />
 	</platform>
 
