@@ -2,7 +2,7 @@
  * 导出方法
  */
 module.exports = {
-    getFile: function (accept, cb) {
+    getFile: function (accept, cb, w, h) {
         return new Promise(function (resolve, reject) {
             cordova.exec(
                 function (json, bs) {
@@ -21,7 +21,7 @@ module.exports = {
                 reject,
                 'Chooser',
                 'getFile',
-                [(typeof accept === 'string' ? accept.replace(/\s/g, '') : undefined) || '*/*']
+                [(typeof accept === 'string' ? accept.replace(/\s/g, '') : undefined) || '*/*', w, h]
             );
         });
     }

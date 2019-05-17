@@ -1,6 +1,7 @@
 package com.cyph.cordova;
 
 import android.app.Dialog;
+import android.content.pm.ActivityInfo;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -31,6 +32,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.lang.Exception;
 import java.net.URI;
+import java.util.List;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -39,10 +41,15 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.bumptech.glide.BitmapTypeRequest;
+import com.bumptech.glide.Glide;
 import com.zhihu.matisse.Matisse;
 import com.zhihu.matisse.MimeType;
+import com.zhihu.matisse.SelectionCreator;
 import com.zhihu.matisse.engine.impl.GlideEngine;
 import com.zhihu.matisse.internal.entity.CaptureStrategy;
+
+import cn.itvmedia.app.R;
 
 public class Chooser extends CordovaPlugin {
 	private static final String ACTION_OPEN = "getFile";
@@ -50,7 +57,9 @@ public class Chooser extends CordovaPlugin {
 	private static final int PICK_FILE_REQUEST = 1;
 	private static final String TAG = "Chooser";
 
-	/** @see https://stackoverflow.com/a/17861016/459881 */
+	private int width = 1920;
+	private int height = 1920;
+
 	public static byte[] getBytesFromInputStream(InputStream is) throws IOException {
 		ByteArrayOutputStream os = new ByteArrayOutputStream();
 		byte[] buffer = new byte[0xFFFF];
@@ -62,7 +71,6 @@ public class Chooser extends CordovaPlugin {
 		return os.toByteArray();
 	}
 
-	/** @see https://stackoverflow.com/a/23270545/459881 */
 	public static String getDisplayName(ContentResolver contentResolver, Uri uri) {
 		String[] projection = { MediaStore.MediaColumns.DISPLAY_NAME };
 		Cursor metaCursor = contentResolver.query(uri, projection, null, null, null);
@@ -92,19 +100,22 @@ public class Chooser extends CordovaPlugin {
 		 * intent.setDataAndType(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, accept); }
 		 * cordova.startActivityForResult(this, intent, Chooser.PICK_FILE_REQUEST);
 		 */
-
-		Matisse matisse = Matisse.from(MainActivity.this);
+		// cordova.startActivityForResult(this, null, 1);
+		Matisse matisse = Matisse.from(cordova.getActivity());
 		SelectionCreator selector = matisse.choose(MimeType.of(MimeType.MP4, MimeType.PNG, MimeType.JPEG), false);
-		selector.maxSelectable(1);
+		selector.capture(true).captureStrategy(new CaptureStrategy(true, "app.itvmedia.cn.fileprovider"));
 		if (accept.equalsIgnoreCase("video/mp4")) {
 			selector = matisse.choose(MimeType.of(MimeType.MP4), false);
 			selector.showSingleMediaType(true);
-		} else {
+		} else if (accept.equalsIgnoreCase("image/*")) {
+			selector = matisse.choose(MimeType.of(MimeType.PNG, MimeType.JPEG), false);
 			selector.capture(true).captureStrategy(new CaptureStrategy(true, "app.itvmedia.cn.fileprovider"));
+			selector.showSingleMediaType(true);
 		}
+		selector.maxSelectable(1);
 		selector.restrictOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED).thumbnailScale(0.85f)
 				.imageEngine(new GlideEngine()).theme(R.style.Matisse_Dracula).forResult(Chooser.PICK_FILE_REQUEST);
-
+		cordova.setActivityResultCallback(this);
 		PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
 		pluginResult.setKeepCallback(true);
 		this.callback = callbackContext;
@@ -115,6 +126,14 @@ public class Chooser extends CordovaPlugin {
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
 		try {
 			if (action.equals(Chooser.ACTION_OPEN)) {
+				width = 1920;
+				height = 1920;
+				try {
+					width = args.getInt(1);
+					height = args.getInt(2);
+				} catch (JSONException e) {
+					e.printStackTrace();
+				}
 				this.chooseFile(callbackContext, args.getString(0));
 				return true;
 			}
@@ -159,29 +178,40 @@ public class Chooser extends CordovaPlugin {
 								int h = 0;
 								byte[] byteArray = null;
 								if (mediaType.indexOf("image") > -1) {
+									BitmapTypeRequest<Uri> buri = Glide.with(cordova.getActivity()).load(uri)
+											.asBitmap();
+									Bitmap thb = buri.centerCrop().into(128, 128).get();
+									thumbnail = that.bitmapToBase64(thb);
+									thb.recycle();
+									// Bitmap bmp = buri.into(that.width, that.height).get();
+									w = that.width;
+									h = that.height;
+									// bmp.recycle();
+									byteArray = buri.toBytes(Bitmap.CompressFormat.JPEG, 90).centerCrop()
+											.into(that.width, that.height).get();
 									// String path = this.getRealPath(uri);
-									int degree = that.readPictureDegree(contentResolver.openInputStream(uri));
-									if (degree != 0) {
-										Bitmap photoBmp = MediaStore.Images.Media.getBitmap(contentResolver, uri);
-										Bitmap bmp = that.rotaingImageView(degree, photoBmp);
-										photoBmp.recycle();
-										w = bmp.getWidth();
-										h = bmp.getHeight();
-										byteArray = that.bitmapToBytes(bmp, 100);
-										thumbnail = that.bitmapToBase64(that.getThumbnail(bmp));
-										// base64 = that.bitmapToBase64(bmp);
-										bmp.recycle();
-									} else {
-										byte[] bytes = Chooser
-												.getBytesFromInputStream(contentResolver.openInputStream(uri));
-										// base64 = Base64.encodeToString(bytes, Base64.DEFAULT);
-										Bitmap bmp = that.bytesToBimap(bytes);
-										w = bmp.getWidth();
-										h = bmp.getHeight();
-										thumbnail = that.bitmapToBase64(that.getThumbnail(that.bytesToBimap(bytes)));
-										byteArray = bytes;
-										bmp.recycle();
-									}
+									// int degree = that.readPictureDegree(contentResolver.openInputStream(uri));
+									// if (degree != 0) {
+									// Bitmap photoBmp = MediaStore.Images.Media.getBitmap(contentResolver, uri);
+									// Bitmap bmp = that.rotaingImageView(degree, photoBmp);
+									// photoBmp.recycle();
+									// w = bmp.getWidth();
+									// h = bmp.getHeight();
+									// byteArray = that.bitmapToBytes(bmp, 100);
+									// thumbnail = that.bitmapToBase64(that.getThumbnail(bmp));
+									// // base64 = that.bitmapToBase64(bmp);
+									// bmp.recycle();
+									// } else {
+									// byte[] bytes = Chooser
+									// .getBytesFromInputStream(contentResolver.openInputStream(uri));
+									// // base64 = Base64.encodeToString(bytes, Base64.DEFAULT);
+									// Bitmap bmp = that.bytesToBimap(bytes);
+									// w = bmp.getWidth();
+									// h = bmp.getHeight();
+									// thumbnail = that.bitmapToBase64(that.getThumbnail(that.bytesToBimap(bytes)));
+									// byteArray = bytes;
+									// bmp.recycle();
+									// }
 									// result.put("degree", degree);
 								} else { // video get thumbnail
 									MediaMetadataRetriever mmr = new MediaMetadataRetriever();
@@ -256,7 +286,7 @@ public class Chooser extends CordovaPlugin {
 	/**
 	 * 读取照片旋转角度
 	 *
-	 * @param path 照片路径
+	 * @param inputStream 照片路径
 	 * @return 角度
 	 */
 	private int readPictureDegree(InputStream inputStream) {

@@ -14,13 +14,19 @@
 
 	<platform name="android">
 		<source-file src="src/android/Chooser.java" target-dir="src/com/cyph/cordova" />
-		<resource-file src="src/android/filepath.xml" target="src/res/xml/filepath.xml" />
+		<source-file src="src/android/filepath.xml" target-dir="res/xml" />
 
 		<config-file target="config.xml" parent="/*">
 			<feature name="Chooser">
 				<param name="android-package" value="com.cyph.cordova.Chooser" />
 			</feature>
 		</config-file>
+        <config-file target="AndroidManifest.xml" parent="/*">
+			<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+			<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+			<uses-permission android:name="android.permission.CAMERA"/>
+			<uses-permission android:name="android.permission.INTERNET" />
+        </config-file>
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
 			<provider
 				android:name="android.support.v4.content.FileProvider"
