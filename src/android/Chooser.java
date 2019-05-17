@@ -39,6 +39,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.zhihu.matisse.Matisse;
+import com.zhihu.matisse.MimeType;
+import com.zhihu.matisse.engine.impl.GlideEngine;
+import com.zhihu.matisse.internal.entity.CaptureStrategy;
+
 public class Chooser extends CordovaPlugin {
 	private static final String ACTION_OPEN = "getFile";
 	private static final String ACTION_CLOSE = "dismiss";
@@ -78,26 +83,27 @@ public class Chooser extends CordovaPlugin {
 	private CallbackContext callback;
 
 	public void chooseFile(CallbackContext callbackContext, String accept) {
-		// Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-		Intent intent = new Intent();
-		if (Build.VERSION.SDK_INT < 19) {
-			intent.setAction(Intent.ACTION_GET_CONTENT);
-			intent.setType(accept);
+		/*
+		 * Intent intent = new Intent(); if (Build.VERSION.SDK_INT < 19) {
+		 * intent.setAction(Intent.ACTION_GET_CONTENT); intent.setType(accept); } else {
+		 * if (accept == "video/mp4") { intent = new Intent(Intent.ACTION_PICK,
+		 * MediaStore.Video.Media.EXTERNAL_CONTENT_URI); } else { intent = new
+		 * Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI); }
+		 * intent.setDataAndType(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, accept); }
+		 * cordova.startActivityForResult(this, intent, Chooser.PICK_FILE_REQUEST);
+		 */
+
+		Matisse matisse = Matisse.from(MainActivity.this);
+		SelectionCreator selector = matisse.choose(MimeType.of(MimeType.MP4, MimeType.PNG, MimeType.JPEG), false);
+		selector.maxSelectable(1);
+		if (accept.equalsIgnoreCase("video/mp4")) {
+			selector = matisse.choose(MimeType.of(MimeType.MP4), false);
+			selector.showSingleMediaType(true);
 		} else {
-			if (accept == "video/mp4") {
-				intent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
-			} else {
-				intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-			}
-			intent.setDataAndType(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, accept);
+			selector.capture(true).captureStrategy(new CaptureStrategy(true, "app.itvmedia.cn.fileprovider"));
 		}
-		// intent.setType(accept);
-		// intent.putExtra(Intent.EXTRA_MIME_TYPES, accept);
-		// intent.addCategory(Intent.CATEGORY_OPENABLE);
-		// intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-		cordova.startActivityForResult(this, intent, Chooser.PICK_FILE_REQUEST);
-		// Intent chooser = Intent.createChooser(intent, "Select File");
-		// cordova.startActivityForResult(this, chooser, Chooser.PICK_FILE_REQUEST);
+		selector.restrictOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED).thumbnailScale(0.85f)
+				.imageEngine(new GlideEngine()).theme(R.style.Matisse_Dracula).forResult(Chooser.PICK_FILE_REQUEST);
 
 		PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
 		pluginResult.setKeepCallback(true);
@@ -131,7 +137,9 @@ public class Chooser extends CordovaPlugin {
 				try {
 					if (requestCode == Chooser.PICK_FILE_REQUEST && that.callback != null) {
 						if (resultCode == Activity.RESULT_OK) {
-							Uri uri = data.getData();
+							// Uri uri = data.getData();
+							List<Uri> pathList = Matisse.obtainResult(data);
+							Uri uri = pathList.get(0);
 
 							if (uri != null) {
 								ContentResolver contentResolver = that.cordova.getActivity().getContentResolver();

@@ -14,12 +14,25 @@
 
 	<platform name="android">
 		<source-file src="src/android/Chooser.java" target-dir="src/com/cyph/cordova" />
+		<resource-file src="src/android/filepath.xml" target-dir="src/res/xml/filepath.xml" />
 
 		<config-file target="config.xml" parent="/*">
 			<feature name="Chooser">
 				<param name="android-package" value="com.cyph.cordova.Chooser" />
 			</feature>
 		</config-file>
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+			<provider
+				android:name="android.support.v4.content.FileProvider"
+				android:authorities="app.itvmedia.cn.fileprovider"
+				android:exported="false"
+				android:grantUriPermissions="true">
+				<meta-data
+					android:name="android.support.FILE_PROVIDER_PATHS"
+					android:resource="@xml/filepath" />
+			</provider>
+        </config-file>
+		<framework src="chooser.gradle" custom="true" type="gradleReference" />
 	</platform>
 
 	<platform name="ios">
