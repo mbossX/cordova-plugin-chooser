@@ -18,7 +18,9 @@ module.exports = {
                         reject(err);
                     }
                 },
-                reject,
+                function (res) {
+                    cb(false);
+                },
                 'Chooser',
                 'getFile',
                 [(typeof accept === 'string' ? accept.replace(/\s/g, '') : undefined) || '*/*', w, h]

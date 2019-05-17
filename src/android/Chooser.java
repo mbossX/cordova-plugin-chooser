@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.support.annotation.Nullable;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -32,6 +33,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.lang.Exception;
 import java.net.URI;
+import java.security.Permission;
 import java.util.List;
 
 import org.apache.cordova.CallbackContext;
@@ -54,7 +56,8 @@ import cn.itvmedia.app.R;
 public class Chooser extends CordovaPlugin {
 	private static final String ACTION_OPEN = "getFile";
 	private static final String ACTION_CLOSE = "dismiss";
-	private static final int PICK_FILE_REQUEST = 1;
+	private static final int PICK_FILE_REQUEST = 19901;
+	private static final int PERMISSION_REQUEST = 19902;
 	private static final String TAG = "Chooser";
 
 	private int width = 1920;
@@ -101,6 +104,7 @@ public class Chooser extends CordovaPlugin {
 		 * cordova.startActivityForResult(this, intent, Chooser.PICK_FILE_REQUEST);
 		 */
 		// cordova.startActivityForResult(this, null, 1);
+		cordova.setActivityResultCallback(this);
 		Matisse matisse = Matisse.from(cordova.getActivity());
 		SelectionCreator selector = matisse.choose(MimeType.of(MimeType.MP4, MimeType.PNG, MimeType.JPEG), false);
 		selector.capture(true).captureStrategy(new CaptureStrategy(true, "app.itvmedia.cn.fileprovider"));
@@ -115,17 +119,42 @@ public class Chooser extends CordovaPlugin {
 		selector.maxSelectable(1);
 		selector.restrictOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED).thumbnailScale(0.85f)
 				.imageEngine(new GlideEngine()).theme(R.style.Matisse_Dracula).forResult(Chooser.PICK_FILE_REQUEST);
-		cordova.setActivityResultCallback(this);
+
 		PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
 		pluginResult.setKeepCallback(true);
-		this.callback = callbackContext;
 		callbackContext.sendPluginResult(pluginResult);
+	}
+
+	private boolean handlePermission() {
+		boolean res = true;
+		if (!cordova.hasPermission("android.permission.CAMERA")) {
+			cordova.requestPermission(this, Chooser.PERMISSION_REQUEST, "android.permission.CAMERA");
+			res = false;
+		}
+		if (!cordova.hasPermission("android.permission.READ_EXTERNAL_STORAGE")) {
+			cordova.requestPermission(this, Chooser.PERMISSION_REQUEST, "android.permission.READ_EXTERNAL_STORAGE");
+			res = false;
+		}
+		if (!cordova.hasPermission("android.permission.WRITE_EXTERNAL_STORAGE")) {
+			cordova.requestPermission(this, Chooser.PERMISSION_REQUEST, "android.permission.WRITE_EXTERNAL_STORAGE");
+			res = false;
+		}
+		if (!cordova.hasPermission("android.permission.INTERNET")) {
+			cordova.requestPermission(this, Chooser.PERMISSION_REQUEST, "android.permission.INTERNET");
+			res = false;
+		}
+		return res;
 	}
 
 	@Override
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
+		this.callback = callbackContext;
 		try {
 			if (action.equals(Chooser.ACTION_OPEN)) {
+				if (!this.handlePermission()) {
+					callbackContext.error("Execute failed: no permission");
+					return true;
+				}
 				width = 1920;
 				height = 1920;
 				try {
@@ -146,6 +175,14 @@ public class Chooser extends CordovaPlugin {
 
 	@Override
 	public void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
+		if (requestCode == Chooser.PERMISSION_REQUEST) {
+			if (resultCode == Activity.RESULT_OK) {
+				this.chooseFile(callback, "image/*,video/mp4");
+			} else {
+				this.callback.error("Execute failed: no permission");
+			}
+			return;
+		}
 		final Chooser that = this;
 
 		PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, "start");
