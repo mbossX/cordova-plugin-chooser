@@ -45,6 +45,8 @@ import org.json.JSONObject;
 
 import com.bumptech.glide.BitmapTypeRequest;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.animation.GlideAnimation;
+import com.bumptech.glide.request.target.SimpleTarget;
 import com.zhihu.matisse.Matisse;
 import com.zhihu.matisse.MimeType;
 import com.zhihu.matisse.SelectionCreator;
@@ -195,7 +197,9 @@ public class Chooser extends CordovaPlugin {
 						if (resultCode == Activity.RESULT_OK) {
 							// Uri uri = data.getData();
 							List<Uri> pathList = Matisse.obtainResult(data);
+							List<String> paths = Matisse.obtainPathResult(data);
 							Uri uri = pathList.get(0);
+							String filePath = paths.get(0);
 
 							if (uri != null) {
 								ContentResolver contentResolver = that.cordova.getActivity().getContentResolver();
@@ -208,48 +212,27 @@ public class Chooser extends CordovaPlugin {
 									mediaType = "application/octet-stream";
 								}
 
-								String base64 = null;
-								String thumbnail = null;
+								String thumbnail;
 								int duration = 0;
-								int w = 0;
-								int h = 0;
+								int w;
+								int h;
 								byte[] byteArray = null;
 								if (mediaType.indexOf("image") > -1) {
 									BitmapTypeRequest<Uri> buri = Glide.with(cordova.getActivity()).load(uri)
 											.asBitmap();
+									BitmapFactory.Options options = new BitmapFactory.Options();
+									options.inJustDecodeBounds = true;
+									BitmapFactory.decodeFile(filePath, options);
+									result.put("rw", options.outWidth);
+									result.put("rh", options.outHeight);
+
 									Bitmap thb = buri.centerCrop().into(128, 128).get();
 									thumbnail = that.bitmapToBase64(thb);
 									thb.recycle();
-									// Bitmap bmp = buri.into(that.width, that.height).get();
 									w = that.width;
 									h = that.height;
-									// bmp.recycle();
 									byteArray = buri.toBytes(Bitmap.CompressFormat.JPEG, 90).centerCrop()
 											.into(that.width, that.height).get();
-									// String path = this.getRealPath(uri);
-									// int degree = that.readPictureDegree(contentResolver.openInputStream(uri));
-									// if (degree != 0) {
-									// Bitmap photoBmp = MediaStore.Images.Media.getBitmap(contentResolver, uri);
-									// Bitmap bmp = that.rotaingImageView(degree, photoBmp);
-									// photoBmp.recycle();
-									// w = bmp.getWidth();
-									// h = bmp.getHeight();
-									// byteArray = that.bitmapToBytes(bmp, 100);
-									// thumbnail = that.bitmapToBase64(that.getThumbnail(bmp));
-									// // base64 = that.bitmapToBase64(bmp);
-									// bmp.recycle();
-									// } else {
-									// byte[] bytes = Chooser
-									// .getBytesFromInputStream(contentResolver.openInputStream(uri));
-									// // base64 = Base64.encodeToString(bytes, Base64.DEFAULT);
-									// Bitmap bmp = that.bytesToBimap(bytes);
-									// w = bmp.getWidth();
-									// h = bmp.getHeight();
-									// thumbnail = that.bitmapToBase64(that.getThumbnail(that.bytesToBimap(bytes)));
-									// byteArray = bytes;
-									// bmp.recycle();
-									// }
-									// result.put("degree", degree);
 								} else { // video get thumbnail
 									MediaMetadataRetriever mmr = new MediaMetadataRetriever();
 									mmr.setDataSource(that.cordova.getActivity(), uri);

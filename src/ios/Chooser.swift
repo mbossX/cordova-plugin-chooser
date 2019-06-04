@@ -8,6 +8,8 @@ import Photos
 @objc(Chooser)
 class Chooser : CDVPlugin {
     var commandCallback: String?
+    var width = 1080
+    var height = 1920
     
     func callPicker ( utis: [String]) {
         if !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
@@ -24,12 +26,14 @@ class Chooser : CDVPlugin {
             imagePicker.delegate = self
             //指定图片控制器类型
             imagePicker.sourceType = .photoLibrary
+            //只显示视频类型的文件
             imagePicker.mediaTypes = utis
             //不需要编辑
             imagePicker.allowsEditing = false
             if #available(iOS 11.0, *) {
                 imagePicker.videoExportPreset = AVAssetExportPreset1920x1080
             } else {
+                // Fallback on earlier versions
                 imagePicker.videoQuality = .typeHigh
             }
             //弹出控制器，显示界面
@@ -69,6 +73,7 @@ class Chooser : CDVPlugin {
             }
             do {
                 self.send("start")
+                var bytes = [UInt8](data)
                 let mediaType = self.detectMimeType(newURL)
                 var config = ["mediaType": mediaType];
                 if mediaType.contains("video") {
@@ -90,9 +95,18 @@ class Chooser : CDVPlugin {
                     config["duration"] = String(Int(CMTimeGetSeconds(avAsset.duration)) * 1000)
                     config["mediaType"] = "video/mp4"
                 } else if let image = UIImage(data: data) {
-                    config["w"] = String(Int(image.size.width))
-                    config["h"] = String(Int(image.size.height))
-                    config["thumbnail"] = self.getThumbnail(image)
+                    config["w"] = String(self.width)
+                    config["h"] = String(self.height)
+                    config["rw"] = String(Int(image.size.width))
+                    config["rh"] = String(Int(image.size.height))
+                    if let img = self.cropImage(img: image, width: self.width, height: self.height) {
+                        config["thumbnail"] = self.getThumbnail(img)
+                        if let data_ = UIImageJPEGRepresentation(img, 1) {
+                            bytes = [UInt8](data_)
+                        }
+                    } else {
+                        config["thumbnail"] = self.getThumbnail(image)
+                    }
                 } else {
                     self.sendError("no result")
                 }
@@ -109,7 +123,7 @@ class Chooser : CDVPlugin {
                     self.sendError("Serializing result failed.")
                 }
                 
-                let bytes = [UInt8](data)
+//                let bytes = [UInt8](data)
                 var len = bytes.count
                 repeat {
                     var count = 1024 * 512
@@ -141,6 +155,17 @@ class Chooser : CDVPlugin {
         self.commandCallback = command.callbackId
         
         let accept = command.arguments.first as! String
+        
+        if let w_ = command.arguments[1] as? Int {
+            self.width = w_
+        } else {
+            self.width = 1080
+        }
+        if let h_ = command.arguments[2] as? Int {
+            self.height = h_
+        } else {
+            self.height = 1920
+        }
         let mimeTypes = accept.components(separatedBy: ",")
         
         let utis = mimeTypes.map { (mimeType: String) -> String in
@@ -229,6 +254,17 @@ class Chooser : CDVPlugin {
         }
         UIGraphicsEndImageContext()
         return res ?? "";
+    }
+    func cropImage(img: UIImage, width: Int, height: Int) -> UIImage? {
+        var res: UIImage?
+        UIGraphicsBeginImageContext(CGSize(width: width, height: height))
+        img.draw(in: CGRect(x: 0, y: 0, width: width, height: height))
+        if let image_ = UIGraphicsGetImageFromCurrentImageContext() {
+//            let data = UIImageJPEGRepresentation(image_, 0.9)
+            res = image_
+        }
+        UIGraphicsEndImageContext()
+        return res
     }
 }
 
